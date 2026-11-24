@@ -299,7 +299,7 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
       ? data.MilesToArrival : sameDestination ? state.milesRemaining : undefined;
     const minutesRemaining = Object.hasOwn(data, 'MinutesToArrival')
       ? data.MinutesToArrival : sameDestination ? state.minutesRemaining : undefined;
-    const next = { ...state, timestamp, active: true, key, destination, destinationName, milesRemaining, minutesRemaining, awaitingEstimate: false };
+    const next = { ...state, timestamp, active: true, key, destination, destinationName, milesRemaining, minutesRemaining, initialNotified: sameDestination ? state.initialNotified : false, awaitingEstimate: false };
     if (sameDestination && !state.awaitingEstimate) {
       console.log('Repeated destination skipped.');
       await persist(next);
@@ -320,14 +320,14 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
       if (Number.isFinite(minutesRemaining) && minutesRemaining >= 0) {
         remaining.push(`${Math.round(minutesRemaining)} min`);
       }
-      if (!remaining.length) {
-        next.awaitingEstimate = true;
-        console.log('Waiting for Tesla route distance or time before notifying.');
+      next.awaitingEstimate = !remaining.length;
+      if (next.awaitingEstimate && sameDestination && state.initialNotified) {
         await persist(next);
         return;
       }
-      const arrival = `${remaining.join(' · ')} remaining`;
-      const body = `${destinationName || 'Navigation destination'}\n${arrival}`;
+      const title = destinationName || 'Navigation destination';
+      const body = remaining.length ? `${title}\n${remaining.join(' · ')} remaining` : title;
+      next.initialNotified = true;
       next.pending = { body, map };
     }
     await persist(next);

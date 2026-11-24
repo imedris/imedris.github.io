@@ -98,7 +98,7 @@ The deployed monitor reads a host-managed log feed using `TELEMETRY_LOG_FILE=/te
 
 `Dockerfile.monitor` supplies Node. The deployed container runs as an unprivileged user with all capabilities dropped and a read-only root filesystem. Application settings and the bounded telemetry log feed are mounted read-only. Only `/state` is writable for saved destination state. A host systemd service forwards receiver logs without giving the notification container access to Docker. Only the VIN, ntfy topic, target coordinates, radius, and receiver container name are needed on the server.
 
-Alerts show the destination name and Tesla’s MilesToArrival and MinutesToArrival when available. These fields stream on changes at most once per minute, with a destination snapshot included for matching. Qualifying destination alerts wait for a real route estimate if the first report lacks one. Tap the notification to open Google Maps.
+Alerts show the destination name and Tesla’s MilesToArrival and MinutesToArrival when available. These fields stream on changes at most once per minute, with a destination snapshot included for matching. Qualifying destinations notify immediately. If the first report lacks an arrival estimate, the first alert contains only the destination name, followed by one alert with real miles/minutes when available. If an estimate is already available, a single combined alert is sent. Tap the notification to open Google Maps.
 
 ## Automatic server updates
 
