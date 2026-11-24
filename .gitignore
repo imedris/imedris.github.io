@@ -1,0 +1,6 @@
+.env
+*-key.pem
+fleet-public-key.pem
+.tesla-tokens.json*
+.destination-state.json*
+!.well-known/appspecific/com.tesla.3p.public-key.pem
