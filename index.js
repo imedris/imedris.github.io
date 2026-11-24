@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 const env = process.env;
 const tokenFile = '.tesla-tokens.json';
+const destinationStateFile = env.STATE_FILE || '.destination-state.json';
 const tokenUrl = 'https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token';
 const scope = 'openid offline_access vehicle_device_data vehicle_location';
 const configPath = '/api/1/vehicles/fleet_telemetry_config';
@@ -323,19 +324,21 @@ async function monitor() {
   const topic = ntfyTopic();
   const binary = env.TELEMETRY_BIN || 'fleet-telemetry';
   const config = env.TELEMETRY_CONFIG || 'telemetry-server.json';
-  if (!env.TELEMETRY_CONTAINER) await readFile(config);
+  if (!env.TELEMETRY_CONTAINER && !env.TELEMETRY_LOG_FILE) await readFile(config);
   const stop = new AbortController();
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => stop.abort());
-  const handleRecord = await createMonitor({ vin, topic, stateFile: '.destination-state.json', signal: stop.signal });
+  const handleRecord = await createMonitor({ vin, topic, stateFile: destinationStateFile, signal: stop.signal });
 
   let wait = 2000;
   while (!stop.signal.aborted) {
     const started = Date.now();
-    const checkpoint = await readJson('.destination-state.json', {});
+    const checkpoint = await readJson(destinationStateFile, {});
     const since = checkpoint.vin === vin && Number.isFinite(checkpoint.timestamp)
       ? new Date(checkpoint.timestamp - 1000).toISOString() : new Date(Date.now() - 1000).toISOString();
-    const command = env.TELEMETRY_CONTAINER ? 'docker' : binary;
-    const args = env.TELEMETRY_CONTAINER
+    const command = env.TELEMETRY_LOG_FILE ? 'tail' : env.TELEMETRY_CONTAINER ? 'docker' : binary;
+    const args = env.TELEMETRY_LOG_FILE
+      ? ['-n', '+1', '-F', required('TELEMETRY_LOG_FILE')]
+      : env.TELEMETRY_CONTAINER
       ? ['logs', '--follow', '--since', since, env.TELEMETRY_CONTAINER] : [`-config=${config}`];
     const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],

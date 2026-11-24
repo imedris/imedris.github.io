@@ -8,3 +8,10 @@ telemetry-server.json
 *.pem
 node_modules/
 !.well-known/appspecific/com.tesla.3p.public-key.pem
+
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+*.log

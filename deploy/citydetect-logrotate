@@ -1,0 +1,10 @@
+/var/log/citydetect/events.jsonl {
+    daily
+    maxsize 5M
+    rotate 2
+    compress
+    missingok
+    notifempty
+    copytruncate
+    su root ubuntu
+}

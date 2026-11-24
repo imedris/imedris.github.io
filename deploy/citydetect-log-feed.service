@@ -1,0 +1,19 @@
+[Unit]
+Description=Read Tesla receiver logs for the notification monitor
+After=docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=/usr/bin/docker logs --follow --since 2m tesla-telemetry
+Restart=always
+RestartSec=2
+StandardOutput=append:/var/log/citydetect/events.jsonl
+StandardError=append:/var/log/citydetect/events.jsonl
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/citydetect
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

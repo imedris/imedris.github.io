@@ -93,9 +93,9 @@ The app atomically saves the most recent valid destination in `.destination-stat
 
 ## Oracle deployment
 
-The deployed monitor reads the existing receiver using `TELEMETRY_CONTAINER=tesla-telemetry`. It reconnects to Docker logs after interruptions and resumes from the timestamp saved in `.destination-state.json`. Names are included in terminal logs and alerts when supplied by the car. Name-only updates at identical coordinates do not generate another alert.
+The deployed monitor reads a host-managed log feed using `TELEMETRY_LOG_FILE=/telemetry/events.jsonl`. It reconnects to Docker logs after interruptions and resumes from the timestamp saved in `.destination-state.json`. Names are included in terminal logs and alerts when supplied by the car. Name-only updates at identical coordinates do not generate another alert.
 
-`Dockerfile.monitor` supplies Node and the Docker CLI. The monitor container mounts its local application directory for settings and persistent state, and the Docker socket to read receiver logs. Access to that socket grants administrative Docker access. Only the VIN, ntfy topic, target coordinates, radius, and receiver container name are needed on the server.
+`Dockerfile.monitor` supplies Node. The deployed container runs as an unprivileged user with all capabilities dropped and a read-only root filesystem. Application settings and the bounded telemetry log feed are mounted read-only. Only `/state` is writable for saved destination state. A host systemd service forwards receiver logs without giving the notification container access to Docker. Only the VIN, ntfy topic, target coordinates, radius, and receiver container name are needed on the server.
 
 Alerts show the destination name and Tesla’s MilesToArrival and MinutesToArrival when available. These fields stream on changes at most once per minute, with a destination snapshot included for matching. Qualifying destination alerts wait for a real route estimate if the first report lacks one. Tap the notification to open Google Maps.
 
@@ -106,3 +106,11 @@ Oracle checks the public GitHub repository's `main` branch every minute using `c
 Check deployment results on Oracle with `sudo journalctl -u citydetect-update.service -n 50`. Check the schedule with `systemctl list-timers citydetect-update.timer`. Pause deployments with `sudo systemctl stop citydetect-update.timer` and resume with `sudo systemctl start citydetect-update.timer`.
 
 The installed updater is `/usr/local/sbin/citydetect-update`, supplied by `deploy/update-monitor.sh`. Changes to the updater or its systemd units require reinstalling those files. Tesla telemetry field changes also require running the local `configure` command through the signing proxy.
+
+## Security
+
+Keep `.env`, tokens, private keys, and destination state outside Git. The public key under `.well-known` is intentionally public. The ntfy topic acts as a secret on the free service. GitHub Pages publishes tracked files, so commit only intended public files.
+
+Automatic deployment trusts pushes to `main`, which execute code on the server. Restrict repository write access and enable two-factor authentication on GitHub. The updater is installed separately from the source it deploys.
+
+The log feed is bounded by `/etc/logrotate.d/citydetect`; logs and saved destination state contain private route data and remain on Oracle.

@@ -32,9 +32,11 @@ if cmp -s "$release/index.js" "$app/index.js" && cmp -s "$release/Dockerfile.mon
 fi
 
 image="citydetect-monitor:$revision"
+chmod 755 "$release"
+chmod 644 "$release/index.js" "$release/Dockerfile.monitor"
 docker build -f "$release/Dockerfile.monitor" -t "$image" "$release"
-docker run --rm -v "$release:/candidate:ro" "$image" node --check /candidate/index.js
-docker run --rm -v "$release:/candidate:ro" "$image" node /candidate/index.js simulate
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 192m -v "$release:/candidate:ro" "$image" node --check /candidate/index.js
+docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 192m -v "$release:/candidate:ro" "$image" node /candidate/index.js simulate
 cp "$app/index.js" "$release/previous-index.js"
 cp "$app/Dockerfile.monitor" "$release/previous-Dockerfile.monitor"
 
@@ -51,6 +53,10 @@ rollback() {
 }
 
 docker stop "$container"
+install -d -m 700 -o 1001 -g 1001 /home/ubuntu/tesla-monitor-state
+if [[ ! -e /home/ubuntu/tesla-monitor-state/destination.json && -f "$app/.destination-state.json" ]]; then
+  install -m 600 -o 1001 -g 1001 "$app/.destination-state.json" /home/ubuntu/tesla-monitor-state/destination.json
+fi
 if ! docker rename "$container" "$previous"; then
   docker start "$container"
   exit 1
@@ -61,7 +67,10 @@ mv "$app/index.js.next" "$app/index.js"
 install -m 644 "$release/Dockerfile.monitor" "$app/Dockerfile.monitor"
 docker run -d --name "$container" --restart unless-stopped \
   --log-opt max-size=10m --log-opt max-file=3 \
-  -v "$app:/app" -v /var/run/docker.sock:/var/run/docker.sock "$image"
+  --user 1001:1001 --read-only --cap-drop ALL --security-opt no-new-privileges \
+  --pids-limit 64 --memory 192m --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  -v "$app:/app:ro" -v /home/ubuntu/tesla-monitor-state:/state \
+  -v /var/log/citydetect:/telemetry:ro "$image"
 sleep 8
 [[ $(docker inspect -f '{{.State.Running}} {{.RestartCount}}' "$container") == 'true 0' ]]
 trap - ERR

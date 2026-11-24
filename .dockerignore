@@ -3,3 +3,9 @@
 *.pem
 .tesla-tokens.json*
 .destination-state.json*
+
+.env.*
+*.key
+*.p12
+*.pfx
+*.log
