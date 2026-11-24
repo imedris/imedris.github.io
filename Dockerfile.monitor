@@ -1,0 +1,4 @@
+FROM node:24-alpine
+RUN apk add --no-cache docker-cli
+WORKDIR /app
+CMD ["node", "--env-file=.env", "index.js"]

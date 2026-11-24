@@ -1,0 +1,13 @@
+{
+  "name": "tesla-destination-alert",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env index.js",
+    "simulate": "node --env-file-if-exists=.env index.js simulate",
+    "test:ntfy": "node --env-file-if-exists=.env index.js test-ntfy",
+    "tesla": "node --env-file-if-exists=.env index.js"
+  }
+}
