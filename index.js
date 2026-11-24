@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, X509Certificate } from 'node:crypto';
 import { readFile, rename, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { createInterface as promptInterface } from 'node:readline/promises';
@@ -158,17 +158,24 @@ async function register() {
 async function configure() {
   const port = Number(env.TELEMETRY_PORT || 443);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid TELEMETRY_PORT.');
+  const certificates = (await readFile(required('TELEMETRY_CA_FILE'), 'utf8'))
+    .match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g) || [];
+  const roots = certificates.filter((pem) => {
+    const certificate = new X509Certificate(pem);
+    return certificate.ca && certificate.subject === certificate.issuer;
+  });
+  if (!roots.length) throw new Error('TELEMETRY_CA_FILE must contain the self-signed root CA.');
   const response = await fleetRequest(`https://localhost:4443${configPath}`, {
     vins: [vehicleVin()],
     config: {
       hostname: required('TELEMETRY_HOST'),
       port,
-      ca: await readFile(required('TELEMETRY_CA_FILE'), 'utf8'),
+      ca: roots.join('\n') + '\n',
       fields: {
-        DestinationLocation: { interval_seconds: 1, include_fields: ['DestinationName', 'MilesToArrival', 'MinutesToArrival'] },
-        DestinationName: { interval_seconds: 1, include_fields: ['DestinationLocation', 'MilesToArrival', 'MinutesToArrival'] },
-        MilesToArrival: { interval_seconds: 60, include_fields: ['DestinationLocation', 'DestinationName', 'MinutesToArrival'] },
-        MinutesToArrival: { interval_seconds: 60, include_fields: ['DestinationLocation', 'DestinationName', 'MilesToArrival'] },
+        DestinationLocation: { interval_seconds: 1 },
+        DestinationName: { interval_seconds: 1 },
+        MilesToArrival: { interval_seconds: 60 },
+        MinutesToArrival: { interval_seconds: 60 },
       },
     },
   });
@@ -271,13 +278,13 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     if (record?.msg !== 'record_payload' || record.vin !== vin) return;
     const data = record.data;
     if (typeof data?.Status === 'string') console.log(`Telemetry connectivity: ${data.Status}`);
-    const destination = data?.DestinationLocation;
+    const destination = data?.DestinationLocation ?? state.destination;
     const timestamp = Date.parse(data?.CreatedAt);
     if (!Number.isFinite(timestamp) || timestamp < state.timestamp) return;
 
     if (destination === '<invalid>') {
       if (state.active !== false) console.log('Navigation destination cleared.');
-      await persist({ ...state, timestamp, active: false, awaitingEstimate: false });
+      await persist({ ...state, timestamp, active: false, destination: null, milesRemaining: null, minutesRemaining: null, awaitingEstimate: false });
       return;
     }
     if (!validPoint(destination)) return;
@@ -285,9 +292,14 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const { latitude, longitude } = destination;
     const key = `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
     const destinationName = typeof data.DestinationName === 'string' && data.DestinationName !== '<invalid>'
-      ? data.DestinationName : undefined;
-    const next = { ...state, timestamp, active: true, key, destinationName, awaitingEstimate: false };
-    if (key === state.key && (destinationName || '').toLowerCase() === (state.destinationName || '').toLowerCase() && !state.awaitingEstimate) {
+      ? data.DestinationName : key === state.key ? state.destinationName : undefined;
+    const sameDestination = key === state.key && (destinationName || '').toLowerCase() === (state.destinationName || '').toLowerCase();
+    const milesRemaining = Object.hasOwn(data, 'MilesToArrival')
+      ? data.MilesToArrival : sameDestination ? state.milesRemaining : undefined;
+    const minutesRemaining = Object.hasOwn(data, 'MinutesToArrival')
+      ? data.MinutesToArrival : sameDestination ? state.minutesRemaining : undefined;
+    const next = { ...state, timestamp, active: true, key, destination, destinationName, milesRemaining, minutesRemaining, awaitingEstimate: false };
+    if (sameDestination && !state.awaitingEstimate) {
       console.log('Repeated destination skipped.');
       await persist(next);
       return;
@@ -301,11 +313,11 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
       const coordinates = `${latitude},${longitude}`;
       const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
       const remaining = [];
-      if (Number.isFinite(data.MilesToArrival) && data.MilesToArrival >= 0) {
-        remaining.push(`${data.MilesToArrival.toFixed(1)} mi`);
+      if (Number.isFinite(milesRemaining) && milesRemaining >= 0) {
+        remaining.push(`${milesRemaining.toFixed(1)} mi`);
       }
-      if (Number.isFinite(data.MinutesToArrival) && data.MinutesToArrival >= 0) {
-        remaining.push(`${Math.round(data.MinutesToArrival)} min`);
+      if (Number.isFinite(minutesRemaining) && minutesRemaining >= 0) {
+        remaining.push(`${Math.round(minutesRemaining)} min`);
       }
       if (!remaining.length) {
         next.awaitingEstimate = true;

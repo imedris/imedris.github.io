@@ -2,7 +2,7 @@
 
 A small Node.js script with zero npm dependencies. It alerts through ntfy when the coordinates of a Tesla's active navigation destination fall within 2 straight-line miles of Kensington station at 33.7720257, -84.2530775, or whose name contains Kensington, Flat Shoals, or Cedar Crest (case-insensitive).
 
-Tesla Fleet Telemetry documents `DestinationLocation` as the active route's destination coordinates. Tesla sends the signal when it changes, subject to the configured interval, and can also send an initial value on startup. This app subscribes to DestinationLocation and DestinationName, using a one-second interval and include_fields to receive their values together. The car pushes data directly to Tesla's official self-hosted receiver, which this app runs as a child process and reads through the built-in JSON logger. There are zero periodic Fleet API requests or vehicle wake requests. Tesla bills for streamed signals according to its Fleet API pricing. [Available data](https://developer.tesla.com/docs/fleet-api/fleet-telemetry/available-data) · [Streaming behavior](https://developer.tesla.com/docs/fleet-api/fleet-telemetry#system-behavior) · [Billing](https://developer.tesla.com/docs/fleet-api/billing-and-limits)
+Tesla Fleet Telemetry documents `DestinationLocation` as the active route's destination coordinates. Tesla sends the signal when it changes, subject to the configured interval, and can also send an initial value on startup. This app subscribes to DestinationLocation and DestinationName, using a one-second interval for destination changes. The car pushes data directly to Tesla's official self-hosted receiver, which this app runs as a child process and reads through the built-in JSON logger. There are zero periodic Fleet API requests or vehicle wake requests. Tesla bills for streamed signals according to its Fleet API pricing. [Available data](https://developer.tesla.com/docs/fleet-api/fleet-telemetry/available-data) · [Streaming behavior](https://developer.tesla.com/docs/fleet-api/fleet-telemetry#system-behavior) · [Billing](https://developer.tesla.com/docs/fleet-api/billing-and-limits)
 
 ## Try it locally
 
@@ -115,3 +115,5 @@ Keep `.env`, tokens, private keys, and destination state outside Git. The public
 Automatic deployment trusts pushes to `main`, which execute code on the server. Restrict repository write access and enable two-factor authentication on GitHub. The updater is installed separately from the source it deploys.
 
 The log feed is bounded by `/etc/logrotate.d/citydetect`; logs and saved destination state contain private route data and remain on Oracle.
+
+The configure command submits independent fields and a self-signed root CA from `TELEMETRY_CA_FILE`. The receiver presents its leaf and intermediate chain. Arrival-only updates are merged with the saved active destination, and estimates are cleared when the destination changes.
