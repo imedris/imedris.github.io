@@ -170,6 +170,7 @@ async function configure() {
     config: {
       hostname: required('TELEMETRY_HOST'),
       port,
+      delivery_policy: 'latest',
       ca: roots.join('\n') + '\n',
       fields: {
         DestinationLocation: { interval_seconds: 1 },

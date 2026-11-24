@@ -116,4 +116,4 @@ Automatic deployment trusts pushes to `main`, which execute code on the server. 
 
 The log feed is bounded by `/etc/logrotate.d/citydetect`; logs and saved destination state contain private route data and remain on Oracle.
 
-The configure command submits independent fields and a self-signed root CA from `TELEMETRY_CA_FILE`. The receiver presents its leaf and intermediate chain. Arrival-only updates are merged with the saved active destination, and estimates are cleared when the destination changes.
+The configure command uses Tesla’s `latest` delivery policy, independent fields, and a self-signed root CA from `TELEMETRY_CA_FILE`. The receiver presents its leaf and intermediate chain. Arrival-only updates are merged with the saved active destination, and estimates are cleared when the destination changes.
