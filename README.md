@@ -1,6 +1,6 @@
 # Tesla Alert
 
-A small Node.js script with zero npm dependencies. It alerts through ntfy when the coordinates of a Tesla's active navigation destination fall within 2 straight-line miles of Kensington station at 33.7720257, -84.2530775, or whose name contains Kensington (case-insensitive).
+A small Node.js script with zero npm dependencies. It alerts through ntfy when the coordinates of a Tesla's active navigation destination fall within 2 straight-line miles of Kensington station at 33.7720257, -84.2530775, or whose name contains Kensington, Flat Shoals, or Cedar Crest (case-insensitive).
 
 Tesla Fleet Telemetry documents `DestinationLocation` as the active route's destination coordinates. Tesla sends the signal when it changes, subject to the configured interval, and can also send an initial value on startup. This app subscribes to DestinationLocation and DestinationName, using a one-second interval and include_fields to receive their values together. The car pushes data directly to Tesla's official self-hosted receiver, which this app runs as a child process and reads through the built-in JSON logger. There are zero periodic Fleet API requests or vehicle wake requests. Tesla bills for streamed signals according to its Fleet API pricing. [Available data](https://developer.tesla.com/docs/fleet-api/fleet-telemetry/available-data) · [Streaming behavior](https://developer.tesla.com/docs/fleet-api/fleet-telemetry#system-behavior) · [Billing](https://developer.tesla.com/docs/fleet-api/billing-and-limits)
 
@@ -25,7 +25,7 @@ Subscribe in the ntfy phone app to the topic in `.env` on `https://ntfy.sh`. To 
 | `TARGET_LATITUDE` | 33.7720257 |
 | `TARGET_LONGITUDE` | -84.2530775 |
 | `RADIUS_MILES` | 2 |
-| `DESTINATION_NAME_MATCH` | kensington, case-insensitive substring. Empty disables name matching. |
+| `DESTINATION_NAME_MATCH` | `kensington,flat shoals,cedar crest`, comma-separated case-insensitive substrings. Empty disables name matching. |
 | `TESLA_CLIENT_ID`, `TESLA_CLIENT_SECRET` | Tesla developer application credentials |
 | `TESLA_REDIRECT_URI` | The exact HTTPS OAuth redirect URI registered for your app |
 | `TESLA_APP_DOMAIN` | Registered app domain, hostname only |

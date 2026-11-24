@@ -231,7 +231,8 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
   };
   const radius = Number(env.RADIUS_MILES || 2);
   const name = env.TARGET_NAME || 'Kensington station';
-  const nameMatch = (env.DESTINATION_NAME_MATCH ?? 'kensington').trim().toLowerCase();
+  const nameMatches = (env.DESTINATION_NAME_MATCH ?? 'kensington,flat shoals,cedar crest')
+    .split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   if (!validPoint(target) || !Number.isFinite(radius) || radius < 0) {
     throw new Error('Set valid target coordinates and a nonnegative RADIUS_MILES.');
   }
@@ -295,7 +296,7 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const distance = distanceMiles(target, destination);
     const when = new Date(timestamp).toISOString();
     console.log(`${when} Destination ${destinationName || key} is ${distance.toFixed(2)} miles from ${name}.`);
-    const matchesName = nameMatch.length > 0 && destinationName?.toLowerCase().includes(nameMatch);
+    const matchesName = nameMatches.some((value) => destinationName?.toLowerCase().includes(value));
     if (matchesName || distance <= radius) {
       const coordinates = `${latitude},${longitude}`;
       const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
