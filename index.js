@@ -166,6 +166,8 @@ async function configure() {
       fields: {
         DestinationLocation: { interval_seconds: 1, include_fields: ['DestinationName', 'MilesToArrival', 'MinutesToArrival'] },
         DestinationName: { interval_seconds: 1, include_fields: ['DestinationLocation', 'MilesToArrival', 'MinutesToArrival'] },
+        MilesToArrival: { interval_seconds: 60, include_fields: ['DestinationLocation', 'DestinationName', 'MinutesToArrival'] },
+        MinutesToArrival: { interval_seconds: 60, include_fields: ['DestinationLocation', 'DestinationName', 'MilesToArrival'] },
       },
     },
   });
@@ -272,7 +274,7 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
 
     if (destination === '<invalid>') {
       if (state.active !== false) console.log('Navigation destination cleared.');
-      await persist({ ...state, timestamp, active: false });
+      await persist({ ...state, timestamp, active: false, awaitingEstimate: false });
       return;
     }
     if (!validPoint(destination)) return;
@@ -281,8 +283,8 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const key = `${latitude.toFixed(5)},${longitude.toFixed(5)}`;
     const destinationName = typeof data.DestinationName === 'string' && data.DestinationName !== '<invalid>'
       ? data.DestinationName : undefined;
-    const next = { ...state, timestamp, active: true, key, destinationName };
-    if (key === state.key) {
+    const next = { ...state, timestamp, active: true, key, destinationName, awaitingEstimate: false };
+    if (key === state.key && !state.awaitingEstimate) {
       console.log('Repeated destination skipped.');
       await persist(next);
       return;
@@ -301,7 +303,13 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
       if (Number.isFinite(data.MinutesToArrival) && data.MinutesToArrival >= 0) {
         remaining.push(`${Math.round(data.MinutesToArrival)} min`);
       }
-      const arrival = remaining.length ? `${remaining.join(' · ')} remaining` : 'Arrival estimate unavailable';
+      if (!remaining.length) {
+        next.awaitingEstimate = true;
+        console.log('Waiting for Tesla route distance or time before notifying.');
+        await persist(next);
+        return;
+      }
+      const arrival = `${remaining.join(' · ')} remaining`;
       const body = `${destinationName || 'Navigation destination'}\n${arrival}`;
       next.pending = { body, map };
     }
@@ -383,7 +391,7 @@ async function simulate(send) {
     await handleRecord({
       msg: 'record_payload',
       vin,
-      data: { DestinationLocation: destination, CreatedAt: new Date().toISOString() },
+      data: { DestinationLocation: destination, DestinationName: 'Simulated destination', MilesToArrival: 12.3, MinutesToArrival: 19, CreatedAt: new Date().toISOString() },
     });
   }
 }

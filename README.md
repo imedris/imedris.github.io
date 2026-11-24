@@ -97,7 +97,7 @@ The deployed monitor reads the existing receiver using `TELEMETRY_CONTAINER=tesl
 
 `Dockerfile.monitor` supplies Node and the Docker CLI. The monitor container mounts its local application directory for settings and persistent state, and the Docker socket to read receiver logs. Access to that socket grants administrative Docker access. Only the VIN, ntfy topic, target coordinates, radius, and receiver container name are needed on the server.
 
-Alerts show the destination name and Tesla’s MilesToArrival and MinutesToArrival when available. These fields are included only with destination events to minimize streaming. Tap the notification to open Google Maps.
+Alerts show the destination name and Tesla’s MilesToArrival and MinutesToArrival when available. These fields stream on changes at most once per minute, with a destination snapshot included for matching. Qualifying destination alerts wait for a real route estimate if the first report lacks one. Tap the notification to open Google Maps.
 
 ## Automatic server updates
 
