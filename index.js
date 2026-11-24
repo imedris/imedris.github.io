@@ -175,8 +175,6 @@ async function configure() {
       fields: {
         DestinationLocation: { interval_seconds: 1 },
         DestinationName: { interval_seconds: 1 },
-        MilesToArrival: { interval_seconds: 60 },
-        MinutesToArrival: { interval_seconds: 60 },
       },
     },
   });
@@ -295,12 +293,8 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const destinationName = typeof data.DestinationName === 'string' && data.DestinationName !== '<invalid>'
       ? data.DestinationName : key === state.key ? state.destinationName : undefined;
     const sameDestination = key === state.key && (destinationName || '').toLowerCase() === (state.destinationName || '').toLowerCase();
-    const milesRemaining = Object.hasOwn(data, 'MilesToArrival')
-      ? data.MilesToArrival : sameDestination ? state.milesRemaining : undefined;
-    const minutesRemaining = Object.hasOwn(data, 'MinutesToArrival')
-      ? data.MinutesToArrival : sameDestination ? state.minutesRemaining : undefined;
-    const next = { ...state, timestamp, active: true, key, destination, destinationName, milesRemaining, minutesRemaining, initialNotified: sameDestination ? state.initialNotified : false, awaitingEstimate: false };
-    if (sameDestination && !state.awaitingEstimate) {
+    const next = { ...state, timestamp, active: true, key, destination, destinationName };
+    if (sameDestination) {
       console.log('Repeated destination skipped.');
       await persist(next);
       return;
@@ -313,21 +307,7 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     if (matchesName || distance <= radius) {
       const coordinates = `${latitude},${longitude}`;
       const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
-      const remaining = [];
-      if (Number.isFinite(milesRemaining) && milesRemaining >= 0) {
-        remaining.push(`${milesRemaining.toFixed(1)} mi`);
-      }
-      if (Number.isFinite(minutesRemaining) && minutesRemaining >= 0) {
-        remaining.push(`${Math.round(minutesRemaining)} min`);
-      }
-      next.awaitingEstimate = !remaining.length;
-      if (next.awaitingEstimate && sameDestination && state.initialNotified) {
-        await persist(next);
-        return;
-      }
-      const title = destinationName || 'Navigation destination';
-      const body = remaining.length ? `${title}\n${remaining.join(' · ')} remaining` : title;
-      next.initialNotified = true;
+      const body = destinationName || 'Navigation destination';
       next.pending = { body, map };
     }
     await persist(next);
