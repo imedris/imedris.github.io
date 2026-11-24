@@ -226,11 +226,12 @@ async function publish(topic, { body, map }, signal) {
 
 async function createMonitor({ vin, topic, stateFile, signal }) {
   const target = {
-    latitude: Number(env.TARGET_LATITUDE || 33.749),
-    longitude: Number(env.TARGET_LONGITUDE || -84.388),
+    latitude: Number(env.TARGET_LATITUDE || 33.7720257),
+    longitude: Number(env.TARGET_LONGITUDE || -84.2530775),
   };
-  const radius = Number(env.RADIUS_MILES || 20);
-  const name = env.TARGET_NAME || 'Atlanta';
+  const radius = Number(env.RADIUS_MILES || 2);
+  const name = env.TARGET_NAME || 'Kensington station';
+  const nameMatch = (env.DESTINATION_NAME_MATCH ?? 'kensington').trim().toLowerCase();
   if (!validPoint(target) || !Number.isFinite(radius) || radius < 0) {
     throw new Error('Set valid target coordinates and a nonnegative RADIUS_MILES.');
   }
@@ -285,7 +286,7 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const destinationName = typeof data.DestinationName === 'string' && data.DestinationName !== '<invalid>'
       ? data.DestinationName : undefined;
     const next = { ...state, timestamp, active: true, key, destinationName, awaitingEstimate: false };
-    if (key === state.key && !state.awaitingEstimate) {
+    if (key === state.key && (destinationName || '').toLowerCase() === (state.destinationName || '').toLowerCase() && !state.awaitingEstimate) {
       console.log('Repeated destination skipped.');
       await persist(next);
       return;
@@ -294,7 +295,8 @@ async function createMonitor({ vin, topic, stateFile, signal }) {
     const distance = distanceMiles(target, destination);
     const when = new Date(timestamp).toISOString();
     console.log(`${when} Destination ${destinationName || key} is ${distance.toFixed(2)} miles from ${name}.`);
-    if (distance <= radius) {
+    const matchesName = nameMatch.length > 0 && destinationName?.toLowerCase().includes(nameMatch);
+    if (matchesName || distance <= radius) {
       const coordinates = `${latitude},${longitude}`;
       const map = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
       const remaining = [];
@@ -388,7 +390,7 @@ async function monitor() {
 async function simulate(send) {
   const vin = 'SIMULATED';
   const handleRecord = await createMonitor({ vin, topic: send ? ntfyTopic() : null });
-  const near = { latitude: 33.9, longitude: -84.35 };
+  const near = { latitude: 33.7720257, longitude: -84.2530775 };
   const far = { latitude: 32.08, longitude: -81.09 };
   for (const destination of [near, near, '<invalid>', near, far, near]) {
     await handleRecord({
